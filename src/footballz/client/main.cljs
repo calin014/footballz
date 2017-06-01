@@ -5,7 +5,8 @@
             [goog.events :as events]
             [goog.events.KeyCodes :as KeyCodes]
             [cljs.core.async :as async :refer (<! >! put! chan)]
-            [taoensso.sente :as sente :refer (cb-success?)]))
+            [taoensso.sente :as sente :refer (cb-success?)]
+            [footballz.shared.game :as g]))
 
 (let [{:keys [chsk ch-recv send-fn state]}
       (sente/make-channel-socket! "/chsk" {:type :auto})]
@@ -26,10 +27,10 @@
   (fn [e]
     (when (:joined? @state)
       (condp = (.-keyCode e)
-        KeyCodes/LEFT (chsk-send! [:footballz/command [type :dec-speed-x]])
-        KeyCodes/RIGHT (chsk-send! [:footballz/command [type :inc-speed-x]])
-        KeyCodes/UP (chsk-send! [:footballz/command [type :dec-speed-y]])
-        KeyCodes/DOWN (chsk-send! [:footballz/command [type :inc-speed-y]])
+        KeyCodes/LEFT (chsk-send! [:footballz/command [type :decel-x]])
+        KeyCodes/RIGHT (chsk-send! [:footballz/command [type :accel-x]])
+        KeyCodes/UP (chsk-send! [:footballz/command [type :decel-y]])
+        KeyCodes/DOWN (chsk-send! [:footballz/command [type :accel-y]])
         nil))))
 
 
@@ -65,20 +66,21 @@
                 :on-click join}]])))
 
 (defn footballz-field [world]
-  [:svg {:width "100%" :height "100%"}
-   (for [[pid player] (:players world)]
+  [:svg {:width g/field-width :height g/field-height}
+   [:rect {:width "100%" :height "100%" :fill "green"}]
+   (for [[pid {:keys [name radius]
+               [x y] :position}] (:players world)]
      ^{:key pid} [:g
-                  [:circle {:cx           (:x player)
-                            :cy           (:y player)
-                            :r            20
+                  [:circle {:cx           x
+                            :cy           y
+                            :r            radius
                             :fill         "red"
                             :stroke-width 0.2
                             :stroke       "green"}]
                   [:text {:fill      "black"
                           :font-size 17
-                          :x         (- (:x player) 15)
-                          :y         (:y player)}
-                   (:name player)]])])
+                          :x         (- x 15)
+                          :y         y} name]])])
 
 
 (defn footballz-game []
