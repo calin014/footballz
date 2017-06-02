@@ -24,7 +24,7 @@
   (def chsk-send! send-fn)
   (def connected-uids connected-uids))
 
-(defonce game (ref {}))
+(defonce game (ref (g/new-game)))
 
 (defroutes routes
            (GET "/" req (response/content-type

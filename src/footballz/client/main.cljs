@@ -16,7 +16,7 @@
   (def chsk-state state))
 
 (defonce state (r/atom {:joined? false
-                        :world   {}}))
+                        :game   (g/new-game)}))
 
 
 ;https://stackoverflow.com/questions/5203407/javascript-multiple-keys-pressed-at-once
@@ -44,7 +44,7 @@
   (println "Unhandled event: %s" event))
 
 (defmethod event-handler :chsk/recv [{:as ev-msg :keys [?data]}]
-  (swap! state assoc :world (second ?data)))
+  (swap! state assoc :game (second ?data)))
 
 (sente/start-client-chsk-router! ch-recv event-handler)
 
@@ -68,13 +68,13 @@
 (defn footballz-field [world]
   [:svg {:width g/field-width :height g/field-height}
    [:rect {:width "100%" :height "100%" :fill "green"}]
-   (for [[pid {:keys [name radius]
-               [x y] :position}] (:players world)]
+   (for [[pid {:keys [name radius color]
+               [x y] :position}] (:entities world)]
      ^{:key pid} [:g
                   [:circle {:cx           x
                             :cy           y
                             :r            radius
-                            :fill         "red"
+                            :fill         color
                             :stroke-width 0.2
                             :stroke       "green"}]
                   [:text {:fill      "black"
@@ -87,7 +87,7 @@
   [:div
    [:h1 "Football-z"]
    (if (not (:joined? @state)) [join-game])
-   [footballz-field (:world @state)]])
+   [footballz-field (:game @state)]])
 
 (r/render-component
   [footballz-game]
