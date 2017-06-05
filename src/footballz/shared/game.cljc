@@ -13,6 +13,7 @@
                      :velocity [0 0]
                      :position [(/ field-width 2) (/ field-height 2)]
                      :radius   10
+                     :mass     3
                      :color    "white"}}})
 
 
@@ -27,6 +28,7 @@
                                           :velocity [0 0]
                                           :position [(+ 10 (rand-int (- field-width 10))) (+ 10 (rand-int (- field-height 10)))]
                                           :radius   20
+                                          :mass     10
                                           :color    "red"}))
 
 
@@ -83,11 +85,16 @@
       (> (+ pos radius) upper-bound) [(- upper-bound radius) (* vel vel-adjustment)]
       :else [pos vel])))
 
-(defn dist [[x1 y1] [x2 y2]]
-  (Math/sqrt (+ (Math/pow (- x2 x1) 2) (Math/pow (- y2 y1) 2))))
 
-(defn scl-prod [[x y] scalar] [(* scalar x) (* scalar y)])
-
+;;TODO: use vector funs in velocity calc also
+(defn vect-scl-prod [[x y] scalar] [(* scalar x) (* scalar y)])
+(defn vect-dot-prod [[x1 y1] [x2 y2]] (+ (* x1 x2) (* y1 y2)))
+(defn vect-div [[x y] scalar] [(/ x scalar) (/ y scalar)])
+(defn vect-diff [[x1 y1] [x2 y2]] [(- x2 x1) (- y2 y1)])
+(defn vect-sum [[x1 y1] [x2 y2]] [(+ x2 x1) (+ y2 y1)])
+(defn vect-magnitude [[x y]] (Math/sqrt (+ (Math/pow x 2) (Math/pow y 2))))
+(defn vect-dist [a b] (vect-magnitude (vect-diff a b)))
+(defn vect-tangent [[x y]] [(- y) x])
 
 (defn apply-bound-collisions [entity]
   (let [{[x y]         :position
@@ -101,11 +108,30 @@
   (map (partial update-entity-position delta-time) entities))
 
 (defn after-collision [entity1 entity2]
-  [(assoc entity1 :position (:old-position entity1) :velocity (scl-prod (:velocity entity2) 0.8))
-   (assoc entity2 :position (:old-position entity2) :velocity (scl-prod (:velocity entity1) 0.8))])
+  (let [{pos1 :position m1 :mass v1 :velocity} entity1
+        {pos2 :position m2 :mass v2 :velocity} entity2
+        normal (vect-diff pos1 pos2)
+        unit-normal (vect-div normal (vect-magnitude normal))
+        unit-tangent (vect-tangent unit-normal)
+        v1n (vect-dot-prod unit-normal v1)
+        v1t (vect-dot-prod unit-tangent v1)
+        v2n (vect-dot-prod unit-normal v2)
+        v2t (vect-dot-prod unit-tangent v2)
+        v1t-final v1t
+        v2t-final v2t
+        v1n-final (/ (+ (* v1n (- m1 m2)) (* 2 m2 v2n)) (+ m1 m2))
+        v2n-final (/ (+ (* v2n (- m2 m1)) (* 2 m1 v1n)) (+ m1 m2))
+        v1n-final-vect (vect-scl-prod unit-normal v1n-final)
+        v1t-final-vect (vect-scl-prod unit-tangent v1t-final)
+        v2n-final-vect (vect-scl-prod unit-normal v2n-final)
+        v2t-final-vect (vect-scl-prod unit-tangent v2t-final)
+        v1-final (vect-sum v1n-final-vect v1t-final-vect)
+        v2-final (vect-sum v2n-final-vect v2t-final-vect)]
+    [(assoc entity1 :position (:old-position entity1) :velocity (vect-scl-prod v1-final 0.8))
+     (assoc entity2 :position (:old-position entity2) :velocity (vect-scl-prod v2-final 0.8))]))
 
 (defn colliding? [{pos1 :position r1 :radius} {pos2 :position r2 :radius}]
-  (<= (- (dist pos1 pos2) (+ r1 r2)) 0))
+  (<= (- (vect-dist pos1 pos2) (+ r1 r2)) 0))
 
 (defn distinct-by [fn coll]
   (map first (vals (group-by fn coll))))
@@ -124,7 +150,7 @@
 
 (defn entities-after-collisions [entities]
   (->> entities
-       (concat (updated-colliding-entities entities))       ;;TODO: recur point if we have
+       (concat (updated-colliding-entities entities))       ;;TODO: recur untill no collision found
        (distinct-by :id)))
 
 (defn apply-collision-updates [delta-time entities]
