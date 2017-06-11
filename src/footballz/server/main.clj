@@ -66,7 +66,7 @@
   (dosync (alter game g/leave uid)))
 
 (defmethod event-handler :footballz/command [{:as ev-msg :keys [event uid ?data]}]
-  (dosync (alter game g/register-player-command uid ?data)))
+  (dosync (alter game g/handle-player-command uid ?data)))
 
 (sente/start-chsk-router! ch-recv event-handler)
 
